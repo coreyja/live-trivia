@@ -3,10 +3,11 @@ import useWebSocket from "react-use-websocket";
 
 import "./App.css";
 
-const HOST = window.location.origin.replace(/^http/, "ws");
+const HOST = process.env.REACT_APP_HOST || window.location.origin;
+const WEBSOCKET_HOST = HOST.replace(/^http/, "ws");
 
 function EchoTime() {
-  const { lastJsonMessage, sendMessage } = useWebSocket(HOST, {
+  const { lastJsonMessage, sendMessage } = useWebSocket(WEBSOCKET_HOST, {
     shouldReconnect: () => true,
   });
 

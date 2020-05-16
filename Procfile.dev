@@ -1,2 +1,2 @@
-server: cd server && PORT=3000 yarn run server
-client: cd client && PORT=3001 yarn start
+server: PORT=3000 yarn workspace server start
+client: PORT=3001 REACT_APP_HOST=http://localhost:3000 yarn workspace client start

@@ -1,8 +1,17 @@
 import express from 'express';
-import { Server } from 'ws';
+import WebSocket, { Server } from 'ws';
+
+interface ConnectedMessage {
+  time: string;
+}
+
+type WebsocketMessage = ConnectedMessage | undefined;
+
+const sendMessage = (msg: WebsocketMessage) => (client: WebSocket): void => {
+  client.send(JSON.stringify(msg));
+};
 
 const PORT = process.env.PORT || 3000;
-
 
 const server = express()
   .use((_req, res) => {
@@ -18,7 +27,12 @@ wss.on('connection', (ws) => {
 });
 
 setInterval(() => {
-  wss.clients.forEach((client) => {
-    client.send(new Date().toTimeString());
-  });
+  const time = new Date().toTimeString();
+  const sendToClient = sendMessage({ time });
+
+  wss.clients.forEach(sendToClient);
 }, 1000);
+
+setInterval(() => {
+  console.log(`Client Count: ${wss.clients.size}`);
+}, 500);

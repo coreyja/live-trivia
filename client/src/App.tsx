@@ -4,41 +4,31 @@ import useWebSocket from "react-use-websocket";
 import logo from "./logo.svg";
 import "./App.css";
 
+function EchoTime() {
+  const { lastJsonMessage } = useWebSocket("ws://localhost:3000");
+
+  return <p>{lastJsonMessage && lastJsonMessage.time}</p>;
+}
+
+function arrayUpTo(n: number) {
+  if (n < 0) {
+    return [];
+  } else {
+    let a = [0];
+    for (let i = 0; i < n; i++) {
+      a.push(i);
+    }
+    return a;
+  }
+}
+
 function App() {
-  const socketUrl = "ws://localhost:3000";
-
-  const {
-    sendMessage,
-    sendJsonMessage,
-    lastMessage,
-    lastJsonMessage,
-    readyState,
-    getWebSocket,
-  } = useWebSocket(socketUrl, {
-    onOpen: () => console.log("opened"),
-    //Will attempt to reconnect on all close events, such as server shutting down
-    shouldReconnect: (_closeEvent) => true,
-  });
-
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Will this auto-reload... Edit <code>src/App.tsx</code> and save to
-          reload.
-        </p>
-        <p>{lastMessage && lastMessage.data}</p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      {arrayUpTo(100).map((i) => (
+        <EchoTime key={i} />
+      ))}
+    </>
   );
 }
 

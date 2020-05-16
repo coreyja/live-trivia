@@ -3,8 +3,10 @@ import useWebSocket from "react-use-websocket";
 
 import "./App.css";
 
-function EchoTime({ i }: { i: number }) {
-  const { lastJsonMessage, sendMessage } = useWebSocket("ws://localhost:3000");
+function EchoTime() {
+  const { lastJsonMessage, sendMessage } = useWebSocket("ws://localhost:3000", {
+    shouldReconnect: () => true,
+  });
 
   return (
     <div>
@@ -12,7 +14,20 @@ function EchoTime({ i }: { i: number }) {
 
       <button
         onClick={() => {
-          sendMessage(`test ${i}`);
+          sendMessage("test");
+          fetch("http://localhost:3000/login", {
+            method: "POST",
+            body: "",
+            credentials: "include",
+          });
+        }}
+      >
+        Login
+      </button>
+
+      <button
+        onClick={() => {
+          sendMessage("test");
         }}
       >
         Submit
@@ -32,9 +47,7 @@ function arrayUpTo(n: number) {
 function App() {
   return (
     <>
-      {arrayUpTo(10).map((i) => (
-        <EchoTime key={i} i={i} />
-      ))}
+      <EchoTime />
     </>
   );
 }

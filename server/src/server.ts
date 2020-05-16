@@ -1,5 +1,10 @@
+import http from 'http';
+
 import express from 'express';
-import WebSocket, { Server } from 'ws';
+import session, { MemoryStore } from 'express-session';
+import cors from 'cors';
+import WebSocket from 'ws';
+import { nanoid } from 'nanoid';
 
 interface ConnectedMessage {
   time: string;
@@ -7,32 +12,82 @@ interface ConnectedMessage {
 
 type WebsocketMessage = ConnectedMessage | undefined;
 
+// const map = new Map<string, WebSocket>();
+
 const sendMessage = (msg: WebsocketMessage) => (client: WebSocket): void => {
   client.send(JSON.stringify(msg));
 };
 
 const PORT = process.env.PORT || 3000;
 
-const server = express().listen(PORT, () => console.log(`Listening on ${PORT}`));
+const sessionParser = session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, httpOnly: false, sameSite: 'none' },
+  store: new MemoryStore(),
+});
 
-const wss = new Server({ server: server });
+const app = express();
 
-wss.on('connection', (ws) => {
-  console.log('Client connected');
-  ws.on('close', () => console.log('Client disconnected'));
+app.use(sessionParser);
+app.use(cors({ credentials: true, origin: 'http://localhost:3001' }));
+app.use('/', express.static('public'));
 
-  ws.on('message', (data) => {
-    console.log(`Message: ${data}`);
+app.post('/login', function (req, res) {
+  if (req.session && req.session.userId) {
+    res.send({ result: 'OK', message: 'Already logged in' });
+    return;
+  }
+  debugger;
+
+  const id = nanoid();
+  console.log(`Updating session for user ${id}`);
+  req.session!.userId = id;
+  res.send({ result: 'OK', message: 'Session updated' });
+});
+
+const server = http.createServer(app);
+
+const wss = new WebSocket.Server({ noServer: true });
+
+server.on('upgrade', function (request, socket, head) {
+  console.log('Parsing session from request...');
+
+  sessionParser(request, {} as any, () => {
+    if (!request.session.userId) {
+      socket.destroy();
+      return;
+    }
+
+    console.log(`There is a user id now - ${request.session.userId}`);
+    wss.handleUpgrade(request, socket, head, function (ws) {
+      wss.emit('connection', ws, request);
+    });
   });
 });
+
+wss.on('connection', (ws, request) => {
+  const userId = (request as any).session.userId;
+
+  console.log(`Client connected - ${userId}`);
+
+  ws.on('close', () => console.log(`Client connected - ${userId}`));
+
+  ws.on('message', (data) => {
+    console.log(`Message from ${userId}: ${data}`);
+  });
+});
+
+server.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 setInterval(() => {
   const time = new Date().toTimeString();
   const sendToClient = sendMessage({ time });
 
-  wss.clients.forEach(sendToClient);
+  wss.clients && wss.clients.forEach(sendToClient);
 }, 1000);
 
 setInterval(() => {
-  console.log(`Client Count: ${wss.clients.size}`);
+  console.log(`Client Count: ${wss.clients && wss.clients.size}`);
 }, 500);

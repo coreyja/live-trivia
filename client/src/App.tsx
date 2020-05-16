@@ -1,32 +1,39 @@
-import React from "react";
+import React, { useEffect } from "react";
 import useWebSocket from "react-use-websocket";
 
-import logo from "./logo.svg";
 import "./App.css";
 
-function EchoTime() {
-  const { lastJsonMessage } = useWebSocket("ws://localhost:3000");
+function EchoTime({ i }: { i: number }) {
+  const { lastJsonMessage, sendMessage } = useWebSocket("ws://localhost:3000");
 
-  return <p>{lastJsonMessage && lastJsonMessage.time}</p>;
+  return (
+    <div>
+      <p>{lastJsonMessage && lastJsonMessage.time}</p>
+
+      <button
+        onClick={() => {
+          sendMessage(`test ${i}`);
+        }}
+      >
+        Submit
+      </button>
+    </div>
+  );
 }
 
 function arrayUpTo(n: number) {
-  if (n < 0) {
-    return [];
-  } else {
-    let a = [0];
-    for (let i = 0; i < n; i++) {
-      a.push(i);
-    }
-    return a;
+  let a = [];
+  for (let i = 0; i < n; i++) {
+    a.push(i);
   }
+  return a;
 }
 
 function App() {
   return (
     <>
-      {arrayUpTo(100).map((i) => (
-        <EchoTime key={i} />
+      {arrayUpTo(10).map((i) => (
+        <EchoTime key={i} i={i} />
       ))}
     </>
   );

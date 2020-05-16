@@ -19,7 +19,7 @@
   },
   "scripts": {
     "server": "tsc && node ./dist/server.js",
-    "build": "tsc && cd ../client && yarn build",
+    "build": "tsc && cd client && yarn build",
     "lint": "eslint '*/**/*.{js,ts,tsx}'",
     "start": "node ./dist/server.js"
   },

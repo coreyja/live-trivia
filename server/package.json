@@ -1,5 +1,6 @@
 {
-  "name": "live-trivia",
+  "name": "server",
+  "private": true,
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
@@ -18,8 +19,7 @@
     "ws": "^7.3.0"
   },
   "scripts": {
-    "server": "tsc && node ./dist/server.js",
-    "build": "tsc && cd client && yarn build",
+    "build": "tsc",
     "lint": "eslint '*/**/*.{js,ts,tsx}'",
     "start": "node ./dist/server.js"
   },

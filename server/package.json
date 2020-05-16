@@ -19,7 +19,9 @@
   },
   "scripts": {
     "server": "tsc && node ./dist/server.js",
-    "lint": "eslint '*/**/*.{js,ts,tsx}'"
+    "build": "tsc && cd ../client && yarn build",
+    "lint": "eslint '*/**/*.{js,ts,tsx}'",
+    "start": "node ./dist/server.js"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.33.0",

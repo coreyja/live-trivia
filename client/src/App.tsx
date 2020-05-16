@@ -3,8 +3,10 @@ import useWebSocket from "react-use-websocket";
 
 import "./App.css";
 
+const HOST = window.location.origin.replace(/^http/, "ws");
+
 function EchoTime() {
-  const { lastJsonMessage, sendMessage } = useWebSocket("ws://localhost:3000", {
+  const { lastJsonMessage, sendMessage } = useWebSocket(HOST, {
     shouldReconnect: () => true,
   });
 
@@ -15,7 +17,7 @@ function EchoTime() {
       <button
         onClick={() => {
           sendMessage("test");
-          fetch("http://localhost:3000/login", {
+          fetch(`${HOST}/login`, {
             method: "POST",
             body: "",
             credentials: "include",

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import useWebSocket from "react-use-websocket";
 
 import "./App.css";
@@ -53,20 +53,48 @@ function EchoTime() {
   );
 }
 
-function arrayUpTo(n: number) {
-  let a = [];
-  for (let i = 0; i < n; i++) {
-    a.push(i);
+interface AdminProps {
+  adminId: string;
+}
+const AdminApp = (_props: AdminProps) => <>Admin</>;
+
+interface QuizProps {
+  userName: string;
+}
+const QuizApp = (_props: QuizProps) => <>Quiz</>;
+const Login = () => <>Login</>;
+
+function WhoAmI() {
+  const [adminId, setAdminId] = useState<string | undefined>(undefined);
+  const [userName, setUserName] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    async function fetchMe() {
+      const resp = await fetch("/me", { credentials: "include" });
+
+      const json = await resp.json();
+      if (json.adminId) {
+        setAdminId(json.adminId);
+      }
+      if (json.userName) {
+        setUserName(json.userName);
+      }
+    }
+    fetchMe();
+  }, []);
+
+  if (adminId) {
+    return <AdminApp adminId={adminId} />;
   }
-  return a;
+  if (userName) {
+    return <QuizApp userName={userName} />;
+  }
+
+  return <Login />;
 }
 
 function App() {
-  return (
-    <>
-      <EchoTime />
-    </>
-  );
+  return <WhoAmI />;
 }
 
 export default App;

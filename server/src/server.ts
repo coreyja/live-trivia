@@ -31,7 +31,6 @@ const sessionParser = session({
 const app = express();
 
 app.use(sessionParser);
-app.use(cors({ credentials: true, origin: 'http://localhost:3001' }));
 app.use('/', express.static('public'));
 
 app.post('/login', function (req, res) {

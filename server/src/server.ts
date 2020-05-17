@@ -24,7 +24,7 @@ const sessionParser = session({
   secret: 'keyboard cat',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, httpOnly: false, sameSite: 'none' },
+  cookie: { secure: !process.env.INSECURE_COOKIE, httpOnly: true, sameSite: true },
   store: new MemoryStore(),
 });
 

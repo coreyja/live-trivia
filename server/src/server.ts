@@ -38,6 +38,18 @@ const app = expressWs.app;
 app.use(sessionParser);
 app.use('/', express.static('public'));
 
+app.get('/me', (req, res) => {
+  if (!req.session) return;
+
+  if (req.session.adminId) {
+    res.send({ admin: true, adminId: req.session.adminId });
+  } else if (req.session.userId) {
+    res.send({ userId: req.session.userId, userName: req.session.userName });
+  } else {
+    res.send({ userId: null, userName: null });
+  }
+});
+
 app.post('/login', function (req, res) {
   if (!req.session) return;
 

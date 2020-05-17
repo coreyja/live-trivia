@@ -7,6 +7,8 @@ import WebSocket from 'ws';
 import { nanoid } from 'nanoid';
 import basicAuth from 'express-basic-auth';
 
+import expressWS from 'express-ws';
+
 interface ConnectedMessage {
   time: string;
 }
@@ -30,7 +32,8 @@ const sessionParser = session({
   store: new MemoryStore(),
 });
 
-const app = express();
+const expressWs = expressWS(express());
+const app = expressWs.app;
 
 app.use(sessionParser);
 app.use('/', express.static('public'));
@@ -69,53 +72,31 @@ app.get('/admin/login', function (req, res) {
   res.redirect('/');
 });
 
-const server = http.createServer(app);
+const wss = expressWs.getWss();
 
-const wss = new WebSocket.Server({ noServer: true });
+app.ws('/', (ws: WebSocket, req) => {
+  if (!req.session) return;
 
-server.on('upgrade', function (request, socket, head) {
-  console.log('Parsing session from request...');
-
-  sessionParser(request, {} as any, () => {
-    if (request.session.adminId) {
-      wss.handleUpgrade(request, socket, head, function (ws) {
-        wss.emit('adminConnection', ws, request);
-      });
-    } else if (request.session.userId) {
-      wss.handleUpgrade(request, socket, head, function (ws) {
-        wss.emit('connection', ws, request);
-      });
-    } else {
-      socket.destroy();
-    }
-  });
+  if (req.session.adminId) {
+    const adminId = req.session.adminId;
+    console.log(`Admin Client connected - ${adminId}`);
+    ws.on('close', () => console.log(`Admin Client disconnected - ${adminId}`));
+    ws.on('message', (data) => {
+      console.log(`Message from Admin ${adminId}: ${data}`);
+    });
+  } else if (req.session.userId) {
+    const userId = req.session.userId;
+    console.log(`Client connected - ${userId}`);
+    ws.on('close', () => console.log(`Admin Client disconnected - ${userId}`));
+    ws.on('message', (data) => {
+      console.log(`Message from ${userId}: ${data}`);
+    });
+  } else {
+    ws.terminate();
+  }
 });
 
-wss.on('connection', (ws: WebSocket, request: Request) => {
-  const userId = (request as any).session.userId;
-
-  console.log(`Client connected - ${userId}`);
-
-  ws.on('close', () => console.log(`Client connected - ${userId}`));
-
-  ws.on('message', (data) => {
-    console.log(`Message from ${userId}: ${data}`);
-  });
-});
-
-wss.on('adminConnection', (ws: WebSocket, request: Request) => {
-  const adminId = (request as any).session.adminId;
-
-  console.log(`Admin Client connected - ${adminId}`);
-
-  ws.on('close', () => console.log(`Admin Client connected - ${adminId}`));
-
-  ws.on('message', (data: any) => {
-    console.log(`Message from ${adminId}: ${data}`);
-  });
-});
-
-server.listen(PORT, () => console.log(`Listening on ${PORT}`));
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 setInterval(() => {
   const time = new Date().toTimeString();

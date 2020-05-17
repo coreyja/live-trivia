@@ -8,7 +8,7 @@ const WEBSOCKET_HOST = HOST.replace(/^http/, "ws");
 
 function EchoTime() {
   const { lastJsonMessage, sendMessage } = useWebSocket(WEBSOCKET_HOST, {
-    shouldReconnect: () => true,
+    shouldReconnect: () => false,
   });
 
   return (

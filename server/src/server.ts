@@ -35,7 +35,9 @@ app.use(sessionParser);
 app.use('/', express.static('public'));
 
 app.post('/login', function (req, res) {
-  if (req.session && req.session.userId) {
+  if (!req.session) return;
+
+  if (req.session.userId) {
     res.send({ result: 'OK', message: 'Already logged in' });
     return;
   }
@@ -43,7 +45,7 @@ app.post('/login', function (req, res) {
 
   const id = nanoid();
   console.log(`Updating session for user ${id}`);
-  req.session!.userId = id;
+  req.session.userId = id;
   res.send({ result: 'OK', message: 'Session updated' });
 });
 

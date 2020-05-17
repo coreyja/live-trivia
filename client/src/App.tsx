@@ -29,6 +29,18 @@ function EchoTime() {
 
       <button
         onClick={() => {
+          fetch(`${HOST}/admin/login`, {
+            method: "POST",
+            body: "",
+            credentials: "include",
+          });
+        }}
+      >
+        Admin Login
+      </button>
+
+      <button
+        onClick={() => {
           sendMessage("test");
         }}
       >

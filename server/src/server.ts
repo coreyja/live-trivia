@@ -38,14 +38,6 @@ const app = expressWs.app;
 app.use(sessionParser);
 app.use('/', express.static('public'));
 
-app.use(
-  '/admin',
-  basicAuth({
-    challenge: true,
-    users: { admin: 'supersecret' },
-  }),
-);
-
 app.post('/login', function (req, res) {
   if (!req.session) return;
 
@@ -60,12 +52,19 @@ app.post('/login', function (req, res) {
   res.send({ result: 'OK', message: 'Session updated' });
 });
 
+app.use(
+  '/admin/login',
+  basicAuth({
+    challenge: true,
+    users: { admin: 'supersecret' },
+  }),
+);
 app.get('/admin/login', function (req, res) {
   if (!req.session) return;
 
   if (!req.session.adminId) {
     const id = nanoid();
-    console.log(`Updating session for user ${id}`);
+    console.log(`Updating session for admin ${id}`);
     req.session.adminId = id;
   }
 
@@ -74,26 +73,32 @@ app.get('/admin/login', function (req, res) {
 
 const wss = expressWs.getWss();
 
-app.ws('/', (ws: WebSocket, req) => {
-  if (!req.session) return;
-
-  if (req.session.adminId) {
-    const adminId = req.session.adminId;
-    console.log(`Admin Client connected - ${adminId}`);
-    ws.on('close', () => console.log(`Admin Client disconnected - ${adminId}`));
-    ws.on('message', (data) => {
-      console.log(`Message from Admin ${adminId}: ${data}`);
-    });
-  } else if (req.session.userId) {
-    const userId = req.session.userId;
-    console.log(`Client connected - ${userId}`);
-    ws.on('close', () => console.log(`Admin Client disconnected - ${userId}`));
-    ws.on('message', (data) => {
-      console.log(`Message from ${userId}: ${data}`);
-    });
-  } else {
+app.ws('/ws', (ws: WebSocket, req) => {
+  if (!req.session || !req.session.userId) {
     ws.terminate();
+    return;
   }
+
+  const userId = req.session.userId;
+  console.log(`Client connected - ${userId}`);
+  ws.on('close', () => console.log(`Client disconnected - ${userId}`));
+  ws.on('message', (data) => {
+    console.log(`Message from ${userId}: ${data}`);
+  });
+});
+
+app.ws('/ws/admin', (ws, req) => {
+  if (!req.session || !req.session.adminId) {
+    ws.terminate();
+    return;
+  }
+
+  const adminId = req.session.adminId;
+  console.log(`Admin Client connected - ${adminId}`);
+  ws.on('close', () => console.log(`Admin Client disconnected - ${adminId}`));
+  ws.on('message', (data) => {
+    console.log(`Message from Admin ${adminId}: ${data}`);
+  });
 });
 
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));

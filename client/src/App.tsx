@@ -7,9 +7,12 @@ const HOST = process.env.REACT_APP_HOST || window.location.origin;
 const WEBSOCKET_HOST = HOST.replace(/^http/, "ws");
 
 function EchoTime() {
-  const { lastJsonMessage, sendMessage } = useWebSocket(WEBSOCKET_HOST, {
-    shouldReconnect: () => false,
-  });
+  const { lastJsonMessage, sendMessage } = useWebSocket(
+    `${WEBSOCKET_HOST}/ws`,
+    {
+      shouldReconnect: () => false,
+    }
+  );
 
   return (
     <div>

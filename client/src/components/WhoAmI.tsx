@@ -1,23 +1,7 @@
 import React, { useEffect, useState } from "react";
-import useWebSocket from "react-use-websocket";
 
-import "./App.css";
-
-const HOST = process.env.REACT_APP_HOST || window.location.origin;
-const WEBSOCKET_HOST = HOST.replace(/^http/, "ws");
-
-function EchoTime() {}
-
-interface AdminProps {
-  adminId: string;
-}
-const AdminApp = (_props: AdminProps) => <>Admin</>;
-
-interface QuizProps {
-  userName: string;
-}
-const QuizApp = (_props: QuizProps) => <>Quiz</>;
-const Login = () => <>Login</>;
+import AdminApp from "./admin/App";
+import QuizPlayer from "./QuizPlayer";
 
 function WhoAmI() {
   const [adminId, setAdminId] = useState<string | undefined>(undefined);
@@ -42,14 +26,24 @@ function WhoAmI() {
     return <AdminApp adminId={adminId} />;
   }
   if (userName) {
-    return <QuizApp userName={userName} />;
+    return <QuizPlayer userName={userName} />;
   }
 
-  return <Login />;
+  return (
+    <>
+      <button
+        onClick={() => {
+          fetch(`/login`, {
+            method: "POST",
+            body: "",
+            credentials: "include",
+          });
+        }}
+      >
+        Login
+      </button>
+    </>
+  );
 }
 
-function App() {
-  return <WhoAmI />;
-}
-
-export default App;
+export default WhoAmI;

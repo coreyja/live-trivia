@@ -5,6 +5,7 @@ import session, { MemoryStore } from 'express-session';
 import cors from 'cors';
 import WebSocket from 'ws';
 import { nanoid } from 'nanoid';
+import basicAuth from 'express-basic-auth';
 
 interface ConnectedMessage {
   time: string;
@@ -34,6 +35,14 @@ const app = express();
 app.use(sessionParser);
 app.use('/', express.static('public'));
 
+app.use(
+  '/admin',
+  basicAuth({
+    challenge: true,
+    users: { admin: 'supersecret' },
+  }),
+);
+
 app.post('/login', function (req, res) {
   if (!req.session) return;
 
@@ -41,12 +50,23 @@ app.post('/login', function (req, res) {
     res.send({ result: 'OK', message: 'Already logged in' });
     return;
   }
-  debugger;
 
   const id = nanoid();
   console.log(`Updating session for user ${id}`);
   req.session.userId = id;
   res.send({ result: 'OK', message: 'Session updated' });
+});
+
+app.get('/admin/login', function (req, res) {
+  if (!req.session) return;
+
+  if (!req.session.adminId) {
+    const id = nanoid();
+    console.log(`Updating session for user ${id}`);
+    req.session.adminId = id;
+  }
+
+  res.redirect('/');
 });
 
 const server = http.createServer(app);
@@ -57,19 +77,21 @@ server.on('upgrade', function (request, socket, head) {
   console.log('Parsing session from request...');
 
   sessionParser(request, {} as any, () => {
-    if (!request.session.userId) {
+    if (request.session.adminId) {
+      wss.handleUpgrade(request, socket, head, function (ws) {
+        wss.emit('adminConnection', ws, request);
+      });
+    } else if (request.session.userId) {
+      wss.handleUpgrade(request, socket, head, function (ws) {
+        wss.emit('connection', ws, request);
+      });
+    } else {
       socket.destroy();
-      return;
     }
-
-    console.log(`There is a user id now - ${request.session.userId}`);
-    wss.handleUpgrade(request, socket, head, function (ws) {
-      wss.emit('connection', ws, request);
-    });
   });
 });
 
-wss.on('connection', (ws, request) => {
+wss.on('connection', (ws: WebSocket, request: Request) => {
   const userId = (request as any).session.userId;
 
   console.log(`Client connected - ${userId}`);
@@ -78,6 +100,18 @@ wss.on('connection', (ws, request) => {
 
   ws.on('message', (data) => {
     console.log(`Message from ${userId}: ${data}`);
+  });
+});
+
+wss.on('adminConnection', (ws: WebSocket, request: Request) => {
+  const adminId = (request as any).session.adminId;
+
+  console.log(`Admin Client connected - ${adminId}`);
+
+  ws.on('close', () => console.log(`Admin Client connected - ${adminId}`));
+
+  ws.on('message', (data: any) => {
+    console.log(`Message from ${adminId}: ${data}`);
   });
 });
 

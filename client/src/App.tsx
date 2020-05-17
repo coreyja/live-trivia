@@ -17,7 +17,6 @@ function EchoTime() {
 
       <button
         onClick={() => {
-          sendMessage("test");
           fetch(`${HOST}/login`, {
             method: "POST",
             body: "",

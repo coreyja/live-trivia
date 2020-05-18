@@ -1,11 +1,33 @@
 import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 
 import AdminApp from "./admin/App";
 import QuizPlayer from "./QuizPlayer";
 
+type FormData = {
+  userName: string;
+};
+
 function WhoAmI() {
   const [adminId, setAdminId] = useState<string | undefined>(undefined);
   const [userName, setUserName] = useState<string | undefined>(undefined);
+  const { register, handleSubmit } = useForm<FormData>();
+
+  const onSubmit = handleSubmit(async (data) => {
+    const resp = await fetch("/login", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(data),
+    });
+    const json = await resp.json();
+    if (json.userName) {
+      setUserName(json.userName);
+    }
+  });
 
   useEffect(() => {
     async function fetchMe() {
@@ -31,17 +53,11 @@ function WhoAmI() {
 
   return (
     <>
-      <button
-        onClick={() => {
-          fetch(`/login`, {
-            method: "POST",
-            body: "",
-            credentials: "include",
-          });
-        }}
-      >
-        Login
-      </button>
+      <form onSubmit={onSubmit}>
+        <input type="text" ref={register()} name="userName" />
+
+        <button type="submit">Login</button>
+      </form>
     </>
   );
 }

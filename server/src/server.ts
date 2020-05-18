@@ -35,8 +35,17 @@ const sessionParser = session({
 const expressWs = expressWS(express());
 const app = expressWs.app;
 
+app.use(express.json());
 app.use(sessionParser);
+
 app.use('/', express.static('public'));
+app.use(
+  '/admin/login',
+  basicAuth({
+    challenge: true,
+    users: { admin: 'supersecret' },
+  }),
+);
 
 app.get('/me', (req, res) => {
   if (!req.session) return;
@@ -53,24 +62,19 @@ app.get('/me', (req, res) => {
 app.post('/login', function (req, res) {
   if (!req.session) return;
 
-  if (req.session.userId) {
-    res.send({ result: 'OK', message: 'Already logged in' });
-    return;
+  if (!req.session.userId) {
+    const id = nanoid();
+    console.log(`Updating session for user ${id}`);
+    req.session.userId = id;
   }
 
-  const id = nanoid();
-  console.log(`Updating session for user ${id}`);
-  req.session.userId = id;
-  res.send({ result: 'OK', message: 'Session updated' });
+  if (req.body.userName) {
+    req.session.userName = req.body.userName;
+  }
+
+  res.send({ userId: req.session.userId, userName: req.session.userName });
 });
 
-app.use(
-  '/admin/login',
-  basicAuth({
-    challenge: true,
-    users: { admin: 'supersecret' },
-  }),
-);
 app.get('/admin/login', function (req, res) {
   if (!req.session) return;
 

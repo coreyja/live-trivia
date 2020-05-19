@@ -6,16 +6,22 @@ import cors from 'cors';
 import WebSocket from 'ws';
 import { nanoid } from 'nanoid';
 import basicAuth from 'express-basic-auth';
-
 import expressWS from 'express-ws';
+import { map } from 'lodash';
 
-interface ConnectedMessage {
-  time: string;
-}
+import { get, set, setJson, getJson } from './store';
+import {
+  TriviaQuestionAttributes,
+  TriviaQuestion,
+  WebsocketMessage,
+  QuestionMessage,
+  questionToMessage,
+  ConnectedMessage,
+} from './models';
 
-type WebsocketMessage = ConnectedMessage | undefined;
-
-// const map = new Map<string, WebSocket>();
+const sendMessage = (msg: WebsocketMessage) => (client: WebSocket): void => {
+  client.send(JSON.stringify(msg));
+};
 
 const PORT = process.env.PORT || 3000;
 
@@ -85,6 +91,8 @@ app.get('/admin/login', function (req, res) {
 
 const wss = expressWs.getWss();
 
+const userSocketMap = new Map<string, WebSocket>();
+
 app.ws('/ws', (ws: WebSocket, req) => {
   if (!req.session || !req.session.userId) {
     ws.terminate();
@@ -93,28 +101,36 @@ app.ws('/ws', (ws: WebSocket, req) => {
 
   const userId = req.session.userId;
   console.log(`Client connected - ${userId}`);
-  ws.on('close', () => console.log(`Client disconnected - ${userId}`));
+  userSocketMap.set(userId, ws);
+  ws.on('close', () => {
+    userSocketMap.delete(userId);
+    console.log(`Client disconnected - ${userId}`);
+  });
   ws.on('message', (data) => {
     console.log(`Message from ${userId}: ${data}`);
   });
 });
 
-interface Answer {
-  text: string;
-  points: number;
-}
-
-interface TriviaQuestion {
-  id: string;
-  text: string;
-  answers: Answer[];
-  seconds: number;
-}
-
-const startNewQuestion = (q: TriviaQuestion) => {
-  console.log(q);
+const broadcastQuestionToAllUsers = (question: TriviaQuestion): void => {
+  const message: QuestionMessage = questionToMessage(question);
+  const sendToClient = sendMessage(message);
+  userSocketMap.forEach(sendToClient);
 };
 
+const startNewQuestion = (q: TriviaQuestionAttributes): void => {
+  const questionStartedAt = Date.now();
+
+  const currentQuestion: TriviaQuestion = {
+    id: q.id,
+    text: q.text,
+    answers: q.answers,
+    endsAt: questionStartedAt + q.seconds * 1000,
+  };
+  setJson('currentQuestion', currentQuestion);
+  broadcastQuestionToAllUsers(currentQuestion);
+};
+
+const adminSocketMap = new Map<string, WebSocket>();
 app.ws('/ws/admin', (ws, req) => {
   if (!req.session || !req.session.adminId) {
     ws.terminate();
@@ -123,6 +139,7 @@ app.ws('/ws/admin', (ws, req) => {
 
   const adminId = req.session.adminId;
   console.log(`Admin Client connected - ${adminId}`);
+  adminSocketMap.set(adminId, ws);
   ws.on('close', () => console.log(`Admin Client disconnected - ${adminId}`));
   ws.on('message', (data) => {
     console.log(`Message from Admin ${adminId}: ${data}`);
@@ -143,12 +160,11 @@ app.ws('/ws/admin', (ws, req) => {
 
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
-const sendMessage = (msg: WebsocketMessage) => (client: WebSocket): void => {
-  client.send(JSON.stringify(msg));
-};
 setInterval(() => {
   const time = new Date().toTimeString();
-  const sendToClient = sendMessage({ time });
+  const q = getJson('currentQuestion') as TriviaQuestion | undefined;
+  const message: WebsocketMessage = q ? questionToMessage(q) : { event: 'connected', time };
+  const sendToClient = sendMessage(message);
 
   wss.clients && wss.clients.forEach(sendToClient);
 }, 1000);

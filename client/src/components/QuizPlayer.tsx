@@ -18,7 +18,7 @@ const QuizPlayer = (props: Props) => {
   return (
     <div>
       <h1>Hello {props.userName}</h1>
-      <p>{lastJsonMessage && lastJsonMessage.time}</p>
+      <p>{lastJsonMessage && JSON.stringify(lastJsonMessage)}</p>
 
       <button
         onClick={() => {

@@ -4,14 +4,14 @@ import { useForm } from "react-hook-form";
 import AdminApp from "./admin/App";
 import QuizPlayer from "./QuizPlayer";
 
-type FormData = {
+type LoginFormData = {
   userName: string;
 };
 
 function WhoAmI() {
   const [adminId, setAdminId] = useState<string | undefined>(undefined);
   const [userName, setUserName] = useState<string | undefined>(undefined);
-  const { register, handleSubmit } = useForm<FormData>();
+  const { register, handleSubmit } = useForm<LoginFormData>();
 
   const onSubmit = handleSubmit(async (data) => {
     const resp = await fetch("/login", {

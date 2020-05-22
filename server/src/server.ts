@@ -7,7 +7,7 @@ import WebSocket from 'ws';
 import { nanoid } from 'nanoid';
 import basicAuth from 'express-basic-auth';
 import expressWS from 'express-ws';
-import { map } from 'lodash';
+import { map, sum, sortBy } from 'lodash';
 
 import { setJson, getJson, printState } from './store';
 import { TriviaQuestionAttributes, TriviaQuestion, filterAnswer } from './models';
@@ -89,7 +89,7 @@ app.get('/admin/login', function (req, res) {
   res.redirect('/');
 });
 
-const userSocketMap = new Map<string, WebSocket>();
+const userSocketMap = new Map<string, WebSocket | undefined>();
 const adminSocketMap = new Map<string, WebSocket>();
 
 app.ws('/ws', (ws: WebSocket, req) => {
@@ -102,7 +102,7 @@ app.ws('/ws', (ws: WebSocket, req) => {
   console.log(`Client connected - ${userId}`);
   userSocketMap.set(userId, ws);
   ws.on('close', () => {
-    userSocketMap.delete(userId);
+    userSocketMap.set(userId, undefined);
     console.log(`Client disconnected - ${userId}`);
   });
 
@@ -154,13 +154,86 @@ const broadcastQuestionToAllUsers = (question: TriviaQuestion): void => {
   const now = Date.now();
   const message: QuestionMessage = questionToMessage(question, { now });
   const sendToClient = sendUserMessage(message);
-  userSocketMap.forEach(sendToClient);
+  userSocketMap.forEach((u) => {
+    u && sendToClient(u);
+  });
 };
 
 const timerify = (label: string, inner: Function) => (): void => {
   const now = Date.now();
   inner();
   console.log(`Function:${label} took ${Date.now() - now}`);
+};
+
+const numberOfAnswers = (question: TriviaQuestion): number => {
+  let count = 0;
+
+  userSocketMap.forEach((_ws, userId): void => {
+    const answers = getJson(`answers:${userId}`) || {};
+    if (answers[question.id]) count += 1;
+  });
+
+  return count;
+};
+
+const scoreForQuetion = (userId: string, question: TriviaQuestion): number => {
+  const answers = getJson(`answers:${userId}`) || {};
+  const answer = answers[question.id];
+
+  return question.answers.find((a) => a.text === answer)?.points || 0;
+};
+
+const currentScoreForUser = (userId: string): number => {
+  const questions: TriviaQuestion[] = getJson('questions') || [];
+
+  return sum(questions.map((q): number => scoreForQuetion(userId, q)));
+};
+
+const sendScoresForQuestion = (q: TriviaQuestion): void => {
+  const userScores: Record<string, number> = {};
+
+  userSocketMap.forEach((_ws, userId) => {
+    userScores[userId] = currentScoreForUser(userId);
+  });
+
+  const sortedUserScores: { userId: string; score: number }[] = sortBy(
+    map(userScores, (score: number, userId: string) => ({
+      userId,
+      score,
+    })),
+    ({ score }) => score,
+  );
+
+  console.log(sortedUserScores);
+  sortedUserScores.forEach(({ userId, score }, index) => {
+    const ws = userSocketMap.get(userId);
+    if (!ws) return;
+
+    const answers = getJson(`answers:${userId}`) || {};
+    const answer = answers[q.id];
+    const place = index + 1;
+
+    if (answer) {
+      const points = scoreForQuetion(userId, q);
+
+      sendUserMessage({
+        event: 'question-score',
+        questionId: q.id,
+        points,
+        answer,
+        currentScore: score,
+        place,
+      })(ws);
+    } else {
+      sendUserMessage({
+        event: 'question-score',
+        questionId: q.id,
+        points: 0,
+        currentScore: score,
+        place,
+      })(ws);
+    }
+  });
 };
 
 const startNewQuestion = (q: TriviaQuestionAttributes): void => {
@@ -172,11 +245,16 @@ const startNewQuestion = (q: TriviaQuestionAttributes): void => {
     answers: q.answers,
     endsAt: questionStartedAt + q.seconds * 1000,
   };
-  setJson('currentQuestion', currentQuestion);
+  const questions = getJson('questions') || [];
+  // setJson('currentQuestion', currentQuestion);
+  setJson('questions', questions.concat(currentQuestion));
+
   broadcastQuestionToAllUsers(currentQuestion);
 
   const user = (now: number): void => {
     userSocketMap.forEach((ws, userId) => {
+      if (!ws) return;
+
       const answers = getJson(`answers:${userId}`) || {};
 
       if (!answers[currentQuestion.id]) {
@@ -190,7 +268,7 @@ const startNewQuestion = (q: TriviaQuestionAttributes): void => {
     const msg = sendAdminMessage({
       event: 'question-stat',
       users: userSocketMap.size,
-      answers: 0,
+      answers: numberOfAnswers(currentQuestion),
       timeLeft,
     });
     adminSocketMap.forEach(msg);
@@ -204,6 +282,8 @@ const startNewQuestion = (q: TriviaQuestionAttributes): void => {
 
     if (now < currentQuestion.endsAt) {
       setTimeout(poll, 100);
+    } else {
+      sendScoresForQuestion(currentQuestion);
     }
   };
   poll();
@@ -219,7 +299,7 @@ app.ws('/ws/admin', (ws, req) => {
   console.log(`Admin Client connected - ${adminId}`);
   adminSocketMap.set(adminId, ws);
   ws.on('close', () => console.log(`Admin Client disconnected - ${adminId}`));
-  ws.on('message', (data) => {
+  ws.on('message', async (data) => {
     console.log(`Message from Admin ${adminId}: ${data}`);
 
     const json = JSON.parse(data.toString());
@@ -231,7 +311,7 @@ app.ws('/ws/admin', (ws, req) => {
       const a3 = { text: body.answer3, points: body.correctAnswer === 'answer3' ? 1 : 0 };
       const a4 = { text: body.answer4, points: body.correctAnswer === 'answer4' ? 1 : 0 };
 
-      startNewQuestion({ id: nanoid(), text: body.question, answers: [a1, a2, a3, a4], seconds: body.seconds });
+      await startNewQuestion({ id: nanoid(), text: body.question, answers: [a1, a2, a3, a4], seconds: body.seconds });
     }
   });
 });

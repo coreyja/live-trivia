@@ -21,5 +21,13 @@ export interface AckAnswerMessage {
   answer: string;
 }
 
-export type WebsocketMessage = ConnectedMessage | QuestionMessage | AckAnswerMessage;
+export interface QuestionScoreMessage {
+  event: 'question-score';
+  questionId: string;
+  answer?: string;
+  points: number;
+  currentScore: number;
+  place: number;
+}
 
+export type WebsocketMessage = ConnectedMessage | QuestionMessage | AckAnswerMessage | QuestionScoreMessage;

@@ -56,13 +56,32 @@ const QuizPlayer: FunctionComponent<Props> = (props) => {
     } else {
       return (
         <>
-          Question is over, waiting for next one. Did you get that last one
-          right?!
+          <p>Question is over, waiting for next one.</p>
+          <p>Did you get that last one right?!</p>
         </>
       );
     }
   } else if (message.event === "ack-answer") {
     return <>You answered {message.answer}</>;
+  } else if (message.event === "question-score") {
+    const { answer, points, currentScore, place } = message;
+
+    if (answer) {
+      return (
+        <>
+          <p>You're answer of {answer} was.....</p>
+          <p>
+            {points > 0
+              ? `Correct! You got ${points} points(s)`
+              : "Incorrect :-("}
+          </p>
+          <p>Your current score is: {currentScore}</p>
+          <p>Your place is: {place}</p>
+        </>
+      );
+    } else {
+      return <>You missed this question and didn't answer :-(</>;
+    }
   } else {
     return <>Error state</>;
   }

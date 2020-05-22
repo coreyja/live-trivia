@@ -19,7 +19,6 @@ const AdminApp: FunctionComponent<Props> = (_props) => {
 
   const onSubmit = handleSubmit((data) => {
     const message = { event: "new-question", body: data };
-    console.log(message);
     sendMessage(JSON.stringify(message));
   });
 

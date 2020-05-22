@@ -9,7 +9,7 @@ import basicAuth from 'express-basic-auth';
 import expressWS from 'express-ws';
 import { map } from 'lodash';
 
-import { get, set, setJson, getJson } from './store';
+import { get, set, setJson, getJson, printState } from './store';
 import {
   TriviaQuestionAttributes,
   TriviaQuestion,
@@ -17,6 +17,8 @@ import {
   QuestionMessage,
   questionToMessage,
   ConnectedMessage,
+  IncomingMessage,
+  AckAnswerMessage,
 } from './models';
 
 const sendMessage = (msg: WebsocketMessage) => (client: WebSocket): void => {
@@ -89,8 +91,6 @@ app.get('/admin/login', function (req, res) {
   res.redirect('/');
 });
 
-const wss = expressWs.getWss();
-
 const userSocketMap = new Map<string, WebSocket>();
 
 app.ws('/ws', (ws: WebSocket, req) => {
@@ -106,8 +106,30 @@ app.ws('/ws', (ws: WebSocket, req) => {
     userSocketMap.delete(userId);
     console.log(`Client disconnected - ${userId}`);
   });
+
   ws.on('message', (data) => {
     console.log(`Message from ${userId}: ${data}`);
+    const json = JSON.parse(data.toString()) as IncomingMessage;
+
+    if (json.event === 'answer-question') {
+      json;
+
+      const key = `answers:${userId}`;
+      const usersAnswers = getJson(key) || {};
+      if (usersAnswers[json.questionId]) {
+      } else {
+        usersAnswers[json.questionId] = json.answer;
+      }
+      usersAnswers;
+      setJson(key, usersAnswers);
+
+      const m: AckAnswerMessage = {
+        event: 'ack-answer',
+        questionId: json.questionId,
+        answer: json.answer,
+      };
+      ws.send(JSON.stringify(m));
+    }
   });
 });
 
@@ -115,6 +137,12 @@ const broadcastQuestionToAllUsers = (question: TriviaQuestion): void => {
   const message: QuestionMessage = questionToMessage(question);
   const sendToClient = sendMessage(message);
   userSocketMap.forEach(sendToClient);
+};
+
+const timerify = (inner: Function) => (): void => {
+  const now = Date.now();
+  inner();
+  console.log(`Function took ${Date.now() - now}`);
 };
 
 const startNewQuestion = (q: TriviaQuestionAttributes): void => {
@@ -128,6 +156,31 @@ const startNewQuestion = (q: TriviaQuestionAttributes): void => {
   };
   setJson('currentQuestion', currentQuestion);
   broadcastQuestionToAllUsers(currentQuestion);
+
+  const poll = (): void => {
+    const now = Date.now();
+    const q = currentQuestion;
+
+    userSocketMap.forEach((ws, userId) => {
+      const answers = getJson(`answers:${userId}`) || {};
+
+      if (!answers[q.id]) {
+        sendMessage(questionToMessage(q))(ws);
+      }
+    });
+
+    if (now < q.endsAt) {
+      setTimeout(poll, 100);
+    }
+  };
+  poll();
+
+  // const adminPoll = (): void => {
+  //   const msg = sendMessage()
+  //   adminSocketMap.forEach((ws, adminId) => {
+
+  //   });
+  // }
 };
 
 const adminSocketMap = new Map<string, WebSocket>();
@@ -162,13 +215,23 @@ app.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 setInterval(() => {
   const time = new Date().toTimeString();
-  const q = getJson('currentQuestion') as TriviaQuestion | undefined;
-  const message: WebsocketMessage = q ? questionToMessage(q) : { event: 'connected', time };
-  const sendToClient = sendMessage(message);
+  // const q = getJson('currentQuestion') as TriviaQuestion | undefined;
 
-  wss.clients && wss.clients.forEach(sendToClient);
-}, 1000);
+  // userSocketMap.forEach((ws, userId) => {
+  //   const answers = getJson(`answers:${userId}`) || {};
+
+  //   if (!q) {
+  //     sendMessage({ event: 'connected', time })(ws);
+  //   } else if (answers[q.id]) {
+  //   } else {
+  //     sendMessage(questionToMessage(q))(ws);
+  //   }
+  // });
+}, 200);
 
 setInterval(() => {
-  console.log(`Client Count: ${wss.clients && wss.clients.size}`);
+  console.log(`Client Count: ${userSocketMap.size}`);
 }, 500);
+
+process.on('exit', printState);
+process.on('SIGINT', printState);

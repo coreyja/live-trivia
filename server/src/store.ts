@@ -16,3 +16,7 @@ export const getJson = (key: string): any => {
   const raw = DATA[key];
   return raw && JSON.parse(raw);
 };
+
+export const printState = () => {
+  console.log('Store state: ', DATA);
+};

@@ -36,7 +36,21 @@ export interface QuestionMessage {
   };
 }
 
-export type WebsocketMessage = ConnectedMessage | QuestionMessage;
+export interface AckAnswerMessage {
+  event: 'ack-answer';
+  questionId: string;
+  answer: string;
+}
+
+export type WebsocketMessage = ConnectedMessage | QuestionMessage | AckAnswerMessage;
+
+export interface AnswerQuestionMessage {
+  event: 'answer-question';
+  questionId: string;
+  answer: string;
+}
+
+export type IncomingMessage = AnswerQuestionMessage;
 
 export const filterAnswer = ({ text }: Answer): FilteredAnswer => ({ text });
 

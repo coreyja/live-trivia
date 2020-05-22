@@ -2,7 +2,8 @@ import React, { FunctionComponent } from "react";
 import useWebSocket from "react-use-websocket";
 
 import { WEBSOCKET_HOST } from "../urls";
-import { WebsocketMessage, AnswerQuestionMessage } from "server/src/models";
+import { WebsocketMessage } from "server/src/messages/outgoing/user";
+import { AnswerQuestionMessage } from "server/src/messages/incoming/user";
 
 interface Props {
   userName: string;

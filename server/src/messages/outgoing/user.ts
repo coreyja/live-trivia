@@ -1,0 +1,25 @@
+import { FilteredAnswer, TriviaQuestion, filterAnswer } from '../../models';
+
+export interface ConnectedMessage {
+  event: 'connected';
+  time: string;
+}
+
+export interface QuestionMessage {
+  event: 'question';
+  question: {
+    id: string;
+    text: string;
+    answers: FilteredAnswer[];
+    secondsLeft: number;
+  };
+}
+
+export interface AckAnswerMessage {
+  event: 'ack-answer';
+  questionId: string;
+  answer: string;
+}
+
+export type WebsocketMessage = ConnectedMessage | QuestionMessage | AckAnswerMessage;
+

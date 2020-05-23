@@ -89,6 +89,24 @@ app.get('/admin/login', function (req, res) {
   res.redirect('/');
 });
 
+const questionToMessage = (
+  { id, text, answers, endsAt }: TriviaQuestion,
+  options: { now?: number } = {},
+): QuestionMessage => {
+  const defaultedNow = options.now || Date.now();
+  const secondsLeft = (endsAt - defaultedNow) / 1000.0;
+
+  return {
+    event: 'question',
+    question: {
+      id,
+      text,
+      secondsLeft,
+      answers: answers.map(filterAnswer),
+    },
+  };
+};
+
 const userSocketMap = new Map<string, WebSocket | undefined>();
 const adminSocketMap = new Map<string, WebSocket>();
 
@@ -111,8 +129,6 @@ app.ws('/ws', (ws: WebSocket, req) => {
     const json = JSON.parse(data.toString()) as IncomingUserMessage;
 
     if (json.event === 'answer-question') {
-      json;
-
       const key = `answers:${userId}`;
       const usersAnswers = getJson(key) || {};
       if (usersAnswers[json.questionId]) {
@@ -122,33 +138,21 @@ app.ws('/ws', (ws: WebSocket, req) => {
       usersAnswers;
       setJson(key, usersAnswers);
 
-      const m: AckAnswerMessage = {
-        event: 'ack-answer',
-        questionId: json.questionId,
-        answer: json.answer,
-      };
-      ws.send(JSON.stringify(m));
+      const questions: TriviaQuestion[] = getJson('questions') || [];
+      const question = questions.find((q) => q.id === json.questionId);
+
+      if (question) {
+        const m1 = questionToMessage(question);
+        const m2: AckAnswerMessage = {
+          event: 'ack-answer',
+          question: m1.question,
+          answer: json.answer,
+        };
+        sendUserMessage(m2)(ws);
+      }
     }
   });
 });
-
-const questionToMessage = (
-  { id, text, answers, endsAt }: TriviaQuestion,
-  options: { now?: number } = {},
-): QuestionMessage => {
-  const defaultedNow = options.now || Date.now();
-  const secondsLeft = (endsAt - defaultedNow) / 1000.0;
-
-  return {
-    event: 'question',
-    question: {
-      id,
-      text,
-      secondsLeft,
-      answers: answers.map(filterAnswer),
-    },
-  };
-};
 
 const broadcastQuestionToAllUsers = (question: TriviaQuestion): void => {
   const now = Date.now();
@@ -256,9 +260,19 @@ const startNewQuestion = (q: TriviaQuestionAttributes): void => {
       if (!ws) return;
 
       const answers = getJson(`answers:${userId}`) || {};
+      const answer = answers[currentQuestion.id];
 
-      if (!answers[currentQuestion.id]) {
-        sendUserMessage(questionToMessage(currentQuestion, { now }))(ws);
+      const message = questionToMessage(currentQuestion, { now });
+
+      if (answer) {
+        const m: AckAnswerMessage = {
+          event: 'ack-answer',
+          question: message.question,
+          answer: answer,
+        };
+        sendUserMessage(m)(ws);
+      } else {
+        sendUserMessage(message)(ws);
       }
     });
   };
@@ -299,7 +313,7 @@ app.ws('/ws/admin', (ws, req) => {
   console.log(`Admin Client connected - ${adminId}`);
   adminSocketMap.set(adminId, ws);
   ws.on('close', () => console.log(`Admin Client disconnected - ${adminId}`));
-  ws.on('message', async (data) => {
+  ws.on('message', (data) => {
     console.log(`Message from Admin ${adminId}: ${data}`);
 
     const json = JSON.parse(data.toString());
@@ -311,26 +325,12 @@ app.ws('/ws/admin', (ws, req) => {
       const a3 = { text: body.answer3, points: body.correctAnswer === 'answer3' ? 1 : 0 };
       const a4 = { text: body.answer4, points: body.correctAnswer === 'answer4' ? 1 : 0 };
 
-      await startNewQuestion({ id: nanoid(), text: body.question, answers: [a1, a2, a3, a4], seconds: body.seconds });
+      startNewQuestion({ id: nanoid(), text: body.question, answers: [a1, a2, a3, a4], seconds: body.seconds });
     }
   });
 });
 
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
-
-// setInterval(() => {
-//   const time = new Date().toTimeString();
-//   const q = getJson('currentQuestion') as TriviaQuestion | undefined;
-//   userSocketMap.forEach((ws, userId) => {
-//     const answers = getJson(`answers:${userId}`) || {};
-//     if (!q) {
-//       sendMessage({ event: 'connected', time })(ws);
-//     } else if (answers[q.id]) {
-//     } else {
-//       sendMessage(questionToMessage(q))(ws);
-//     }
-//   });
-// }, 200);
 
 process.on('exit', printState);
 process.on('SIGINT', printState);

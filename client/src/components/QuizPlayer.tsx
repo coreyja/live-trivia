@@ -9,7 +9,17 @@ interface Props {
   userName: string;
 }
 
-const QuizPlayer: FunctionComponent<Props> = (props) => {
+const Header: FunctionComponent<Props> = (props) => {
+  return (
+    <div>
+      <h1>Hello {props.userName}</h1>
+    </div>
+  );
+};
+
+const Loading = () => <>No Messages Yet</>;
+
+const Inner = () => {
   const { lastJsonMessage, sendMessage } = useWebSocket(
     `${WEBSOCKET_HOST}/ws`,
     {
@@ -20,49 +30,41 @@ const QuizPlayer: FunctionComponent<Props> = (props) => {
   const message = lastJsonMessage as WebsocketMessage | undefined;
 
   if (!message) {
-    return <>No Messages Yet</>;
+    return <Loading />;
   } else if (message.event === "connected") {
     return <>The time is: {message.time}</>;
-  } else if (message.event === "question") {
+  } else if (message.event === "question" || message.event === "ack-answer") {
     const q = message.question;
 
-    if (q.secondsLeft > 0) {
-      const answerQuestion = (answer: string): void => {
-        const message: AnswerQuestionMessage = {
-          event: "answer-question",
-          questionId: q.id,
-          answer: answer,
-        };
-        sendMessage(JSON.stringify(message));
+    const secondsLeft = Math.floor(Math.max(q.secondsLeft, 0));
+
+    const answerQuestion = (answer: string): void => {
+      const message: AnswerQuestionMessage = {
+        event: "answer-question",
+        questionId: q.id,
+        answer: answer,
       };
+      sendMessage(JSON.stringify(message));
+    };
 
-      return (
-        <div>
-          <h1>Hello {props.userName}</h1>
-          <h3>Time Left: {q.secondsLeft}</h3>
-          <p>{q.text}</p>
+    return (
+      <div>
+        <h3>Time Left: {secondsLeft}</h3>
+        <p>{q.text}</p>
 
-          {q.answers.map((a) => (
-            <button
-              onClick={() => {
-                answerQuestion(a.text);
-              }}
-            >
-              {a.text}
-            </button>
-          ))}
-        </div>
-      );
-    } else {
-      return (
-        <>
-          <p>Question is over, waiting for next one.</p>
-          <p>Did you get that last one right?!</p>
-        </>
-      );
-    }
-  } else if (message.event === "ack-answer") {
-    return <>You answered {message.answer}</>;
+        {message.event === "ack-answer"
+          ? `You answered ${message.answer}`
+          : q.answers.map((a) => (
+              <button
+                onClick={() => {
+                  answerQuestion(a.text);
+                }}
+              >
+                {a.text}
+              </button>
+            ))}
+      </div>
+    );
   } else if (message.event === "question-score") {
     const { answer, points, currentScore, place } = message;
 
@@ -87,4 +89,10 @@ const QuizPlayer: FunctionComponent<Props> = (props) => {
   }
 };
 
+const QuizPlayer: FunctionComponent<Props> = (props) => (
+  <>
+    <Header {...props} />
+    <Inner />
+  </>
+);
 export default QuizPlayer;

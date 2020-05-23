@@ -17,8 +17,13 @@ export interface QuestionMessage {
 
 export interface AckAnswerMessage {
   event: 'ack-answer';
-  questionId: string;
   answer: string;
+  question: {
+    id: string;
+    text: string;
+    answers: FilteredAnswer[];
+    secondsLeft: number;
+  };
 }
 
 export interface QuestionScoreMessage {
